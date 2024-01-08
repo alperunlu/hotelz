@@ -1,24 +1,14 @@
-import csv  # For saving data
+import csv 
+import requests  
+from lxml import html  
 
-
-import requests  # For sending request to websites
-from lxml import html  # For parsing data
-
+def get_user_input():
+    city = input("City name: ")
+    check_in = input("Check-in date (YYYY-MM-DD): ")
+    check_out = input("Check-out date (YYYY-MM-DD): ")
+    return city, check_in, check_out
 
 def get_response(city, check_in, check_out):
-    """
-    This function will send a request to the bookig.com  with the given
-    query_string as parameter and returns the response object.
-
-    Args:
-        city (str) : The hotels listed under which city to be searched.
-        check_in (str): Check In date for the hotels to be searched.
-        check_out (str) : Check Out date for the hotels to be searched.
-
-    Returns:
-        Response : response object received from Booking.com
-    """
-
     url = "https://www.booking.com/searchresults.html"
 
     headers = {
@@ -56,78 +46,38 @@ def get_response(city, check_in, check_out):
     response = requests.get(url=url, headers=headers, params=params)
     return response
 
-
 def parse_response(response):
-    """
-    This function parses the response received from the Booking.com,
-    finds all the hotel data from the html and returns this data as
-    list of dictionaries.
-
-    Args:
-        response (response_object): Response of request send to Booking.com
-
-    Returns:
-        list: Returns a list of dictionaries where each dictionary contains
-        data of a particular hotel.
-    """
-
     parser = html.fromstring(response.text)
     hotels_data = []
     hotels_list = parser.xpath("//div[@data-testid='property-card']")
     for hotel in hotels_list:
         name = hotel.xpath(".//div[@data-testid='title']/text()")
         location = hotel.xpath(".//span[@data-testid='address']/text()")
-        price = hotel.xpath(
-            ".//span[@data-testid='price-and-discounted-price']//text()"
-        )[0]
-        rating = hotel.xpath(
-            ".//div[@data-testid='review-score']/div[contains(@aria-label, 'Scored')]/text()"
-        )
-        review_count = hotel.xpath(
-            ".//div[@class='abf093bdfe f45d8e4c32 d935416c47']/text()"
-        )
+        price = hotel.xpath(".//span[@data-testid='price-and-discounted-price']//text()")
+        rating = hotel.xpath(".//div[@data-testid='review-score']/div[contains(@aria-label, 'Scored')]/text()")
+        review_count = hotel.xpath(".//div[@class='abf093bdfe f45d8e4c32 d935416c47']/text()")
+
+        # website = hotel.xpath(".//a[@data-ga-track='clickout']//@href")
+        # phone_number = hotel.xpath(".//span[@class='phone-number']//text()")
 
         hotel_data = {
             "name": clean_str(name),
             "location": clean_str(location),
-            "price": price,
+            "price": clean_str(price),
             "rating": clean_str(rating),
             "review_count": clean_review_count(review_count),
+        #    "website": clean_str(website),
+        #    "phone_number": clean_str(phone_number),
         }
         hotels_data.append(hotel_data)
 
     return hotels_data
 
-
 def clean_str(raw_string):
-    """
-    This function converts a list of strings to a single string joined by a
-    seperator.
-
-    Args:
-        raw_string : List of strings tho be combined
-
-    Returns:
-        str: A single string formed by concatenating the elements of the input list
-    """
-
     clean_str = " ".join(" ".join(raw_string).split()).strip() if raw_string else None
-
     return clean_str
 
-
 def clean_review_count(raw_review):
-    """
-    This function converts a raw review count(uncleaned / messed)
-    to a proper review count in integer format.
-
-    Args:
-        raw_review : Raw review string to be cleaned
-
-    Returns:
-        str: Cleaned review count.
-    """
-
     clean_review = clean_str(raw_review)
     review_count = (
         clean_review.replace("reviews", "")
@@ -137,32 +87,19 @@ def clean_review_count(raw_review):
         if clean_review
         else None
     )
-
     return review_count
 
-
 def save_data(data):
-    """
-    This function saves the hotel data to a csv file
-
-    Args:
-        data (list): A list of dictionaries where each dictionary contains
-        data of a particular hotel.
-    """
-
     if not data:
         return
     fields = data[0].keys()
-    with open("Hotels.csv", "w") as file:
+    with open("Hotels.csv", "w", newline='', encoding='utf-8') as file:
         dict_writer = csv.DictWriter(file, fields)
         dict_writer.writeheader()
         dict_writer.writerows(data)
 
-
 def main():
-    city = "Sydney"
-    check_in = "2024-01-01"
-    check_out = "2024-01-10"
+    city, check_in, check_out = get_user_input()
 
     response = get_response(city, check_in, check_out)
 
@@ -170,8 +107,7 @@ def main():
         data = parse_response(response)
         save_data(data)
     else:
-        print("Invalid Response")
-
+        print("Invalid response.")
 
 if __name__ == "__main__":
     main()
